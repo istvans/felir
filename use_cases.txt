@@ -1,0 +1,85 @@
+feliratkozas
+============
+naptar: egy adott naptar tartalmazza a feliratkozo esemenyeket (uj feliratkozott naptar neve, forras, stb.)
+ ^
+ |
+service: rendszeresen olvassa a konfiguralt naptarat uj entry-k utan kutatva
+ |
+ | uj entry
+ |
+naptar: minden entry beolvasasa
+ |
+ |
+process: ciklus az entry-ken keresztul. ossze kell vetni, hogy mire iratkoztunk mar fel es mi az ami uj
+         otlet: az eredeti feliratkozot masoljuk at az uj naptarba? igy konnyu lenne osszehasonlitani - nem, az uj naptarba csak a valodi esemenyek kerulnek
+         irjuk be a feliratkozo entry-be, hogy fel lett-e mar dolgozva. pl SUBSCRIBED
+         ERROR: ha valamit nem sikerult beolvasni. ezek mindig a nev prefixei lesznek
+            a leirasba mehetnek a hiba reszeletei valami ERROR_MESSAGE: prefixel pl
+         igy ezeket egybol lehet skip-elni a feldolgozasnal
+         parancsok kellenek:
+         mi van, ha meg akarjuk valtoztatni a feliratkozast? atirod es a SUBSCRIBED lecsereled UPDATE-re -> SUBSCRIBED lesz ujra, ha kesz
+         legegyszerubb megoldas: a mostani datumig a feliratkozott entry-ket nem bantjuk. a jovobenieket toroljuk es feliratkozunk az uj config szerint
+         mi van, ha torolni akarjuk? SUBSCRIBED -> DELETE torolni fogja a feliratkozott naptarat teljesen, de a feliratkozo entry-n csak atirja a DELETE-et DELETED-re
+ |
+naptar: uj naptarak letrehozasa
+ |
+parse: a megadott forrasok beparsolasa, esemenyek kinyerese
+       otlet: kulon teljesen felkonfiguralt parser-ek es ezeknek a neveit kell megani a feliratkozo esemenyben, pl a location-be?
+              pro: konnyu feliratkozas
+              contra: nem tul rugalmas, lehet hogy minden feliratkozashoz kulon parser kell majd, vagy legalabbis kulon config - akkor mi ertelme a naptaras cuccnak?
+              hogy nezne ez ki? pl. lenne egy parser aki tudja olvasni az https://focimagazin.hu/content/tv-m%C5%B1sor-%C3%A9l%C5%91-foci-tv-ben
+                problema: az oldal nem adja meg a tervezett befejezest - de mivel ez csak foci ezert mehet a default 90 + 15 = 105 perc a starttol
+              ez azt jelentene, hogy naptar bejegyzesse tudja alakitani amiket ott talal. ezaz! kell kezdes, vege, cim, idozona, location (a csatorna) es amelyik naptarba parse-olunk megadja, hogy ez mely esemeny resze
+              az idozonat az adott oldal parser-e tudna, hiszen egy adott oldalt csak egy idozonaban publikalja az esemenyeket
+              lenne egy masik parser ami pl a https://www.hatharom.com/tvmusor-t tudna olvasni, hasonloan naptar bejegyzest gyartva
+              szoval, meglennenek a lehetseges naptar bejegyzesek es ezeket kene SZURNI
+        tobb parser egyideju hasznalata? mi van, ha nem ertenek egyet egy elemen? a lehetoseg legyen meg, de nem kell elsore igazan
+filter: kulonbozo modszereket kene tamogatni. az egyik tuti a regex lenne, de ez nem ilyen egyszeru... hm, talan megis.
+        ha a parser-ek egy standard, egy soros string-e alakitanak az osszes entry-t, akkor azokat nagyon konnyu lenne megszurni --> vagy valami entry struct-ra aminek a filed-jeire szurhetnenk
+        pl. (LIVE/REPEAT)#yyyy.mm.dd.HH:MM - yyyy.mm.dd.HH:MM#LOCATION#NAME#SUB_NAME
+        tehat a feliratkozo ezekre az elemekre adna meg egy egy szurot.
+        pl.
+        (type:LIVE mondjuk ez lehetne a default)
+        alapbol case insensitive legyen a search?
+        search, ha match-et akarsz akkor ^<bla>$ es ez persze csak az adott
+        NAME:Tenisz
+        SUB_NAME:Palermo    |
+                            |- ez a ket szuro sorrend fuggetlen es kapcsolatot jelent, vagyis az adott esemeny SUB_NAME mezoje mindket regex keresesre match-elni kell, hogy bekeruljon az
+                            |  esemeny a naptarba
+        SUB_NAME:WTA        |
+        kell-e ennel is komplexebb? valami OR?
+        hm, lehet ilyesmi kene inkabb:
+        SUB_NAME:Palermo&&WTA  -> search Palermo && WTA, both need to match individually; the order doesn't matter
+        SUB_NAME:Palermo||WTA  -> search Palermo || WTA, one of them needs to match; the order doesn't matter
+        ha a sorrend szamit -> sima regex
+        ez a resz nagyon fontos. barmit le kell, hogy tudjak irni a naptarban es akkor ez tenyleg mukodik <<<------ kiterjett teszteles kell majd ide
+        FILTER:case-sensitive valami
+
+
+
+
+
+
+
+
+frissites
+=========
+service: periodikusan megnezzuk a SUBSCRIBED entry-ket, hogy vannak-e a keresesi felteteleknek megfelelo esemenyek
+         a periodus erdekes kerdes.
+         15 percenkent? talan az tul suru
+         naponta pl hajnal 5-kor? talan tul ritka. mi van, ha valami el volt cseszve es javitjak meg az esemeny elott, vagy ilyesmi?
+         minden ora harminckor? a legtobb esemeny valszeg egeszkor kezdodik es igy fel oraval elotte lenne meg egy frissites hogy tuti jo legyen?
+         birja vajon a google calendar a fel orankenti lekerdezest? es a parse-olt oldalak?
+         cache-eles: csak, ha szukeseges
+ |
+ |
+naptar: letezik-e mar az adott nevvel valami?
+            ha igen:
+                jo idopontban van?
+                jo csatornaval?
+                ha ezekre mind igen a valasz -> nincs dolgunk
+                ha barmelyik nem -> torles es ujra letrehozas
+        vagy nem talaltunk semmit -> letrehozas
+
+
+
